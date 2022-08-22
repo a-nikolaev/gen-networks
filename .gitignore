@@ -1,8 +1,9 @@
 .*.swp
 README.html
-.o
-.cmi
-.cmo
+*.o
+*.cmi
+*.cmo
+*.cmx
 growth
 fd_dist
 ed_dist
@@ -15,7 +16,7 @@ graph_growth
 sc_cc
 q_structure
 q_structure2
-d_correlation
+fd_correlation
 show_fd_correlation
 fd_corr_more
 lrgst_concomp
