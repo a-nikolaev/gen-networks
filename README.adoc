@@ -1,0 +1,167 @@
+= A Toolkit for Generation and Analysis of Affiliation Networks
+
+== Overview
+This repository is a collection of programs complementing [paper], which can be used for generating affiliation networks 
+and calculating their properties (such as degree and size distributions, clustering coefficient, assortativity, average distance, 
+Q-analysis metrics, etc.)
+
+The programs are written in Unix style: they are command-line-friendly, and in most cases the output of one program (e.g. network generation)
+can be piped into another program (e.g. computing the degree distribution).
+
+==== Supported network types
+
+- *Hypergraphs (HG)*, where every affiliation is a hyperedge (i.e. a non-empty set of nodes). Example in the plain-text format we use:
+  
+  %hg
+  {1, 2, 3} {3, 4} {3, 4, 5}
+ 
+- *Abstract Simplicial Complexes (SC)*, where every affiliation is a facet (i.e. maximal face of the complex). This in practice means that
+no affiliation is a subset of another affiliation. Therefore, the hypergraph example above is not a valid simplicial complex
+networks, b.c. `{3 ,4}` is a subset of `{3, 4, 5}`, and so the corresponding simplicial complex network will be instead represented as:
+  
+  %sc
+  {1, 2, 3} {3, 4, 5}
+
+==== Plain-text format for representing affiliation networks
+
+==== Plain-text format for representing distributions
+
+== How to build
+=== Prerequisites:
+
+- `make`
+- `ocaml` compiler
+- OCaml library `findlib` (which provides `ocamlfind` utility)
+
+Both, `ocaml` and `findlib` can be installed either with the OCaml package manager OPAM, or using your system package manager.
+
+=== To build:
+
+  $ make
+
+(Note that the toolkit includes some auxiliary helper scripts written in Ruby. These scripts are not required by the main programs,
+and only provide additional convenience for certain tasks.)
+
+== User Manual
+=== `./growth` generates hypergraph (HG) or simplicial complex (SC) affiliation network
+
+*Usage:*
+
+  ./growth OPTIONS 
+  ./growth OPTIONS initial-network-filename 
+
+*Example:*
+
+  ./growth --type=sc --model=acl:2:0.5,1,1 --any --n=100 
+
+*Mandatory options:*
+```
+  --type=[sc|hg]  Simplicial complex or hypergraph
+
+  --model=acl:[1|2|3]:{num},{num},{num}  
+          acdistl:[1|2|3]:{num},{filename},{num}
+          sizedist:{filename}    
+          aclsizedist:[1|2|3]:{num},{num},{num}:{filename}  
+  
+  --any           OR
+  --best=metric   Grow randomly or maximize a metric
+  
+  --n=num         OR
+  --lcc=num       OR
+  --i=num         Termination condition. Grow until reached:
+                  --n     nodes
+                  --lcc   largest connected component size (# of nodes)
+                  --i     number of growth operations
+```
+*Non-mandatory options:*
+```
+  --seed=num      Random seed
+  --safe          "Safe" reading the initial network file. 
+                  In the SC case, automatically subsumes facets 
+                  that are subsets of other facets.
+                  In the HG case, it does nothing.
+```
+
+*Recommended / most common usage*:
+```
+./growth --type={type} --model=acl:2:{alpha}:{c}:{l} --any --n={N}
+```
+where replace:
+
+- `{type}` with either `hg` or `sc`
+- `{alpha}`, `{c}`, and `{l}` with the corresponding model parameters _0 &lt; &#945; &lt; 1_, positive integers _c_ and _l_ 
+- `{N}` with the desired number of nodes in the produced network (alternatively, consider using `--i`).
+
+*Advanced usage:*
+
+- `--model=acl:1:{alpha}:{c}:{l}` and 
+- `--model=acl:3:{alpha}:{c}:{l}` (note `:1:` and `:3:` instead of `:2:`) are two alternative variants
+ of the model (See Section [X] in [paper])
+- `--model=acdistl:[1|2|3]:{alpha},{c-dist-file},{l}` is the same as `--model=acl`, but instead of using a constant value 
+ for _c_, every growth operation samples a random value from the supplied distribution stored as a file like:
+```
+  5 0.25
+  6 0.5
+  7 0.125
+  8 0.125
+```
+- `--model=sizedist:{filename}`
+- `--model=aclsizedist:[1|2|3]:{alpha}:{c}:{l}`
+- `--best={metric}` (instead of `--any`),
+  each growth operation is not chosen at random, but attempts to increase certain "metric".
+  Specifically, the algorithm samples three growth operations and branches the network into three corresponding future states.
+  Then it chooses the one future state that maximizes the desired metric. 
+  Replace `{metric}` with the integer number corresponding to the metric 
+  (see source code file `metric.ml` for details), some good options:
+```
+    101  Maximum facet size
+    102  Average facet size
+    103  Maximum facet degree
+    104  Average facet degree
+    105  Maximum edge degree
+    106  Average edge degree
+    107  Number of nodes
+    108  Number of facets
+    109  Number of connected components
+```
+
+=== `./fd_dist` computes facet (or hyperedge) degree distribution
+Reads a HG or a SC network from STDIN and outputs its degree distribution into STDOUT.
+
+*Example:*
+```
+$ echo -e '%sc\n {1, 2, 3} {2, 4} {3, 4} {5}' | ./fd_dist
+1 0.4
+2 0.6
+```
+(i.e. 40% have degree 1, 60% have degree 2)
+```
+$ ./growth --type=sc --model=acl:2:0.5,1,1 --any --n=100 | ./fd_dist
+1 0.73
+2 0.18
+3 0.04
+4 0.02
+5 0.01
+9 0.01
+12 0.01
+```
+
+=== `./fs_dist` computes facet (or hyperedge) size distribution
+Reads a HG or a SC network from STDIN and outputs its affiliation size distribution into STDOUT.
+
+*Example:*
+```
+$ echo -e '%sc\n {1, 2, 3} {2, 4} {3, 4} {5}' | ./fs_dist
+1 0.25
+2 0.5
+3 0.25
+```
+(i.e. 25% have size 1, 50% have size 2, and 25% have size 3.)
+```
+$ ./growth --type=sc --model=acl:2:0.5,1,1 --any --n=100 | ./fs_dist 
+1 0.0945946
+2 0.364865
+3 0.405405
+4 0.121622
+5 0.0135135
+```
