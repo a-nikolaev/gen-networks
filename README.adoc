@@ -29,15 +29,16 @@ networks, b.c. `{3 ,4}` is a subset of `{3, 4, 5}`, and so the corresponding sim
 == How to build
 === Prerequisites:
 
-- `make`
+- (GNU) `make`, `gcc`
 - `ocaml` compiler
-- OCaml library `findlib` (which provides `ocamlfind` utility)
+- `ocamlfind` (library manager for OCaml).
 
-Both, `ocaml` and `findlib` can be installed either with the OCaml package manager OPAM, or using your system package manager.
+Both `ocaml` and `ocamlfind` can be installed either with the OCaml package manager OPAM, or using your system package manager.
+See more info on installing OCaml here: https://ocaml.org/docs/up-and-running.
 
 === To build:
 
-  $ make
+  make
 
 (Note that the toolkit includes some auxiliary helper scripts written in Ruby. These scripts are not required by the main programs,
 and only provide additional convenience for certain tasks.)
@@ -50,10 +51,22 @@ and only provide additional convenience for certain tasks.)
   ./growth OPTIONS 
   ./growth OPTIONS initial-network-filename 
 
-*Example:*
+*Examples:*
+```
+  $ ./growth --type=sc --model=acl:2:0.5,1,1 --any --n=100 
+```
+```
+  $ cat init.sc
+  %sc
+  { 1 2 3 }
+  { 2 3 4 }
 
-  ./growth --type=sc --model=acl:2:0.5,1,1 --any --n=100 
-
+  $ ./growth --type=sc --model=acl:2:0.5,1,1 --any --n=6 init.sc
+  %sc
+  { 1 2 3 6 }
+  { 2 3 4 }
+  { 5 }
+```
 *Mandatory options:*
 ```
   --type=[sc|hg]  Simplicial complex or hypergraph
@@ -69,9 +82,9 @@ and only provide additional convenience for certain tasks.)
   --n=num         OR
   --lcc=num       OR
   --i=num         Termination condition. Grow until reached:
-                  --n     nodes
-                  --lcc   largest connected component size (# of nodes)
-                  --i     number of growth operations
+                  n:    nodes
+                  lcc:  largest connected component size (# of nodes)
+                  i:    number of growth operations
 ```
 *Non-mandatory options:*
 ```
@@ -96,7 +109,7 @@ where replace:
 
 - `--model=acl:1:{alpha}:{c}:{l}` and 
 - `--model=acl:3:{alpha}:{c}:{l}` (note `:1:` and `:3:` instead of `:2:`) are two alternative variants
- of the model (See Section [X] in [paper])
+ of the model (See Section [FIXME] in [paper])
 - `--model=acdistl:[1|2|3]:{alpha},{c-dist-file},{l}` is the same as `--model=acl`, but instead of using a constant value 
  for _c_, every growth operation samples a random value from the supplied distribution stored as a file like:
 ```
@@ -105,8 +118,8 @@ where replace:
   7 0.125
   8 0.125
 ```
-- `--model=sizedist:{filename}`
-- `--model=aclsizedist:[1|2|3]:{alpha}:{c}:{l}`
+- `--model=sizedist:{filename}` [FIXME]
+- `--model=aclsizedist:[1|2|3]:{alpha}:{c}:{l}` [FIXME]
 - `--best={metric}` (instead of `--any`),
   each growth operation is not chosen at random, but attempts to increase certain "metric".
   Specifically, the algorithm samples three growth operations and branches the network into three corresponding future states.
@@ -126,15 +139,23 @@ where replace:
 ```
 
 === `./fd_dist` computes facet (or hyperedge) degree distribution
-Reads a HG or a SC network from STDIN and outputs its degree distribution into STDOUT.
+Reads a SC or a HG network from STDIN and outputs its degree distribution into STDOUT.
 
-*Example:*
+*Usage:*
 ```
-$ echo -e '%sc\n {1, 2, 3} {2, 4} {3, 4} {5}' | ./fd_dist
-1 0.4
-2 0.6
+  cat filename | ./fd_dist
+  cat filename | ./fd_dist --safe
+
+  ./fd_dist < filename
+  ./fd_dist --safe < filename
 ```
-(i.e. 40% have degree 1, 60% have degree 2)
+*Examples:*
+```
+echo -e '%sc\n {1,2,3} {3,4}' | ./fd_dist
+1 0.75
+2 0.25
+```
+(i.e. 75% of the nodes have degree 1 and 25% have degree 2)
 ```
 $ ./growth --type=sc --model=acl:2:0.5,1,1 --any --n=100 | ./fd_dist
 1 0.73
@@ -147,16 +168,23 @@ $ ./growth --type=sc --model=acl:2:0.5,1,1 --any --n=100 | ./fd_dist
 ```
 
 === `./fs_dist` computes facet (or hyperedge) size distribution
-Reads a HG or a SC network from STDIN and outputs its affiliation size distribution into STDOUT.
+Reads a SC or a HG network from STDIN and outputs its affiliation size distribution into STDOUT.
 
-*Example:*
+*Usage:*
 ```
-$ echo -e '%sc\n {1, 2, 3} {2, 4} {3, 4} {5}' | ./fs_dist
-1 0.25
+  cat filename | ./fs_dist
+  cat filename | ./fs_dist --safe
+
+  ./fs_dist < filename
+  ./fs_dist --safe < filename
+```
+*Examples:*
+```
+$ echo -e '%sc\n {1,2,3} {3,4}' | ./fs_dist
 2 0.5
-3 0.25
+3 0.5
 ```
-(i.e. 25% have size 1, 50% have size 2, and 25% have size 3.)
+(i.e. 50% of the affiliations have size 2 and 50% have size 3.)
 ```
 $ ./growth --type=sc --model=acl:2:0.5,1,1 --any --n=100 | ./fs_dist 
 1 0.0945946
@@ -164,4 +192,32 @@ $ ./growth --type=sc --model=acl:2:0.5,1,1 --any --n=100 | ./fs_dist
 3 0.405405
 4 0.121622
 5 0.0135135
+```
+
+=== `./ed_dist` computes degree distribution of the skeleton graph of the network
+Reads a SC or a HG network from STDIN, computes 
+the _degree distribution of the skeleton graph_ of the network and outputs it into STDOUT.
+(One can see it as a reduction of the network to the corresponding simple graph, and then computing its
+degree distribution.)
+
+*Example:*
+```
+$ echo -e '%sc\n {1,2,3} {2,3,4} {4,5}' | ./ed_dist
+1 0.2
+2 0.2
+3 0.6
+```
+Explanation of the above example:
+```
+The skeleton graph:
+
+      2
+    / | \
+  1   |  4 - 5
+    \ | /
+      3
+
+Nodes of degree=1:  5        (i.e. 1/5 = 20%)
+Nodes of degree=2:  1        (i.e. 1/5 = 20%)
+Nodes of degree=3:  2, 3, 4  (i.e. 3/5 = 60%)
 ```

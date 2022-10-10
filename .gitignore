@@ -1,5 +1,6 @@
 .*.swp
 README.html
+data/
 *.o
 *.cmi
 *.cmo
